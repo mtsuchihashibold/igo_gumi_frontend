@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='UTF-8' />
+    <style type='text/css'>
+      html {
+		  font-size: 12pt;
+      }
+    </style>
+    <script type='module'>
+      import Logger from './src/Logger.js';
+      import {range, attachCss} from './src/utils.js';
+      import {AssertionError, assertEquals, assertStrictEquals, assertNotEquals, assertTrue, assertFalse, assertException} from '../src/assert.js';
+      import PositionDispenser from '../src/PositionDispenser.js';
+      import IshiFactory from '../src/IshiFactory.js';
+      import InnerTableBuilderFactory from '../src/builder/InnerTableBuilder.js';
+      import Board from '../src/Board.js';
+
+      const log = new Logger(true);
+
+      const Game = (function() {
+		  const initialize = function() {
+			  // init board
+			  // init game status
+			  // init dispacher
+		  }
+		  const start = function() {
+			  // start dispacher
+		  }
+		  const terminate = function() {
+			  // end & clean dispacher
+		  }
+      })();
+      
+      const EventFactory = (function(){
+		  const ID_SYSTM = 0b0001;
+		  const ID_PLY01 = 0b0010;
+		  const ID_PLY02 = 0b0100;
+		  const ID_PLYAI = 0b1000;
+		  
+		  const EVENT_ECH = 0b0000_0000_0000_0001;  /* echo */ 
+		  const EVENT_PUT = 0b0000_0000_0000_0010;  /* put */
+		  const EVENT_RMV = 0b0000_0000_0000_0100;  /* remove */
+		  const EVENT_NXT = 0b0000_0000_0000_1000;  /* next turn */
+		  const EVENT_EVL = 0b0000_0000_0001_0000;  /* evalute board-status */
+		  const EVENT_CEC = 0b0000_0000_0010_0000;  /* check enclose */
+		  const EVENT_RKA = 0b0000_0000_0100_0000;  /* check server keep-alive */ 
+		  const EVENT_GED = 0b0000_1000_0000_0000;  /* geme-end */
+		  const EVENT_SIZ = 0b1111_1111_1111_1111;  /* EVENT SIZE */
+
+		  const CMD_NM_ECH = 'ECH';
+		  const CMD_NM_PUT = 'PUT';
+		  const CMD_NM_RMV = 'RMV';
+		  const CMD_NM_NXT = 'NXT';
+		  const CMD_NM_EVL = 'EVL';
+		  const CMD_NM_CHK = 'CEC';
+		  const CMD_NM_RKA = 'RKA';
+		  const CMD_NM_GED = 'GEN';
+
+		  const DUMMY_POS = {
+			  getRow() { return -1; },
+			  getCol() { return -1; }
+		  }
+
+		  class EventParameter {
+			  // Blank
+		  }
+
+		  class PutEventParameter extends EventParameter {
+#row
+#col
+#color
+			  constructor(row, col, color) {
+				  this.#row = row;
+				  this.#col = col;
+				  this.#color = color;
+			  }
+			  get row() {
+				  return this.#row;
+			  }
+			  get col() {
+				  return this.#col;
+			  }
+			  get color() {
+				  return this.#color;
+			  }
+		  }
+
+		  class EchoEventParameter extends EventParameter {
+#pos;
+#id;
+#msg;
+			  constructor(pos, id, msg) {
+				  this.#pos = pos;
+				  this.#id = id;
+				  this.#msg = msg;
+			  }
+			  get pos() {
+				  return this.#pos;
+			  }
+			  get id() {
+				  return this.#id;
+			  }
+			  get msg() {
+				  return this.#msg;
+			  }
+		  }
+		  
+		  class Event {
+#name;
+#row;
+#col;
+#playerid;
+#msg;
+#param;
+			  // constructor(name, pos, id, msg){
+			  // 	  // if ( !isString(name) )
+			  // 	  //     throw new TypeError('Invalid argument Error');
+			  // 	  // if ( pos instanceof Position ) 
+			  // 	  //     throw new TypeError('Invalid argument Error');
+			  // 	  this.#name = name;
+			  // 	  this.#row = pos.getRow();
+			  // 	  this.#col = pos.getCol();
+			  // 	  this.#playerid = id;
+			  // 	  this.#msg = msg;
+			  // 	  
+			  // }
+			  // get name() {
+			  // 	  return this.#name;
+			  // }
+			  // get row() {
+			  // 	  return this.#row;
+			  // }
+			  // get col() {
+			  // 	  return this.#col;
+			  // }
+			  // get pid() {
+			  // 	  return this.#playerid;
+			  // }
+			  // get msg() {
+			  // 	  return this.#msg;
+			  // }
+			  constructor(param) {
+//				  assertionTrue(param instanceof EventParameter);
+				  this.#param = param;
+			  }
+			  get param() {
+				  return this.#param;
+			  }
+			  execute(board) {
+				  throw new Error('Not implement');
+			  }
+			  toString() {
+				  // const obj = new Object();
+				  // obj.name = this.#name;
+				  // obj.row = this.#row;
+				  // obj.col = this.#col;
+				  // obj.playerid = this.#playerid;
+				  // return JSON.stringify(obj);
+			  }
+			  toJSON() {
+				  return this.toString();
+			  }
+		  }
+
+		  class EchoEvent extends Event {
+			  // constructor(pos, id, msg) {
+			  // 	  super(CMD_NM_ECH, DUMMY_POS, ID_SYSTM, msg);
+			  // }
+			  constructor(param) {
+				  super(param);
+			  }
+			  execute(board) {
+				  console.log(this.param.msg);
+			  }
+		  }
+
+		  class PutEvent extends Event {
+			  constructor(pos, id) {
+				  log.debug(`PutEvent constructor`);
+				  super(CMD_NM_PUT, pos);
+			  }
+			  execute(board) {
+				  log.debug("fired: PutEvent");
+				  log.debug(board);
+				  board.setIshi(IshiFactory.createBlack(this.row, this.col));
+			  }
+		  }
+
+		  class RemoveEvent extends Event {
+			  constructor(pos, id) {
+				  super(CMD_NM_RMV, pos);
+			  }
+		  }
+		  class NextTurnEvent extends Event {
+			  constructor() {
+				  super(CMD_NM_NXT, DUMMY_POS, ID_SYSTM);
+			  }
+		  }
+		  class EvaluteBoardEvent extends Event {
+			  constructor(pos) {
+				  super(CMD_NM_EVL, pos, ID_SYSTM);
+			  }
+		  }
+		  class CheckServerKeepalive extends Event {
+			  constructor(pos, id, msg) {
+				  super(CMD_NM_RKA, DUMMY_POS, ID_SYSTM, msg);
+			  }
+			  execute(board) {
+				  const url = `http://localhost:8099/echo/${this.msg}`;
+				  // const res = await (await fetch(url)).json();
+				  // console.log(res);
+				  // TODO: move fetch to api-utils
+				  fetch(url)
+					  .then((res) => {
+						  res.json().then(res2 =>{
+							  console.log(`server response: ${res2.msg}`);
+						  })
+					  })
+			  }
+		  }
+		  class CheckEncloseEvent extends Event {
+			  constructor(pos) {
+				  super(CMD_NM_CEC, pos, ID_SYSTM);
+			  }
+		  }
+		  class GameEndEvent extends Event {
+			  constructor(pos) {
+				  super(CMD_NM_GED, pos, ID_SYSTM);	
+		  }
+		  }
+
+		  const EVENT_SPEC_DB = new Array(Math.ceil(Math.log2(EVENT_SIZ)));
+		  EVENT_SPEC_DB[EVENT_ECH] = EchoEvent.prototype.constructor;
+		  EVENT_SPEC_DB[EVENT_PUT] = PutEvent.prototype.constructor;
+		  EVENT_SPEC_DB[EVENT_RMV] = RemoveEvent.prototype.constructor;
+		  EVENT_SPEC_DB[EVENT_NXT] = NextTurnEvent.prototype.constructor;
+		  EVENT_SPEC_DB[EVENT_EVL] = EvaluteBoardEvent.prototype.constructor;
+		  EVENT_SPEC_DB[EVENT_CEC] = CheckEncloseEvent.prototype.constructor;
+		  EVENT_SPEC_DB[EVENT_RKA] = CheckServerKeepalive.prototype.constructor;
+		  EVENT_SPEC_DB[EVENT_GED] = GameEndEvent.prototype.constructor;
+
+		  Object.freeze(EVENT_SPEC_DB);
+
+		  const retObj = {
+			  create: function(event_spec, pos, id, msg) {
+				  return new EVENT_SPEC_DB[event_spec](pos, id, msg);
+			  },
+		  }
+
+		  retObj.EVENT_ECH = EVENT_ECH;
+		  retObj.EVENT_PUT = EVENT_PUT;
+		  retObj.EVENT_RMV = EVENT_RMV;
+		  retObj.EVENT_NXT = EVENT_NXT;
+		  retObj.EVENT_EVL = EVENT_EVL;
+		  retObj.EVENT_CEC = EVENT_CEC;
+		  retObj.EVENT_RKA = EVENT_RKA;
+		  retObj.EVENT_GED = EVENT_GED;
+
+		  retObj.ID_SYSTM = ID_SYSTM;
+		  retObj.ID_PLY01 = ID_PLY01;
+		  retObj.ID_PLY02 = ID_PLY02;
+		  retObj.ID_PLYAI = ID_PLYAI;
+
+		  Object.freeze(retObj);
+
+		  return retObj;
+      })();
+
+      const EventDispacher = (function() {
+		  const DELAY_MS = 16;
+		  
+		  const STAT_NOT_INIT   = 0b0000_0000;
+		  const STAT_INIT       = 0b0000_0001;
+		  const STAT_START      = 0b0000_0010;
+		  const STAT_END        = 0b0000_0100;
+		  const STAT_STOP       = 0b0000_1000;
+
+		  let _status = STAT_NOT_INIT;
+		  let _board = null;
+		  let _intervalId = -1;
+
+		  let _messageList = [];
+		  const execute = function() {
+			  if ( _messageList.length == 0 ) return;
+			  _messageList.forEach( (msg) => {
+				  try {
+					  log.debug(msg);
+					  msg.execute(_board);
+				  } catch(e) {
+					  log.error(e);
+				  } finally {
+					  // pass
+				  }
+			  });
+			  _messageList = [];
+		  }
+
+		  return {
+			  initialize(board) {
+				  log.debug('initialize');
+				  if ( _status != STAT_NOT_INIT )
+					  return -1;
+				  _board = board;
+				  _status = STAT_INIT;
+			  },
+			  start() {
+				  if ( (_status & STAT_INIT) == STAT_INIT
+					   || (_status & STAT_STOP) == STAT_STOP )
+				  {
+					  // do exetute
+					  _intervalId = setInterval(
+						  execute,
+						  DELAY_MS);
+					  _status = STAT_START;
+				  } else {
+					  // err
+					  throw new Error('event-dispacher alrady is running.');
+				  }
+			  },
+			  end() {
+				  clearInterval(_intervalId);
+				  _status = STAT_STOP;
+			  },
+			  send(cmd) {
+				  _messageList.push(cmd);
+			  }
+		  }
+      })();
+
+      // // put event
+      // const generatePutIshi = (function() {
+	  // 	  let cnt = 0;
+	  // 	  const translateIshi = function(ishi, masuWidth, masuHeight, ishiSize) {
+	  // 		  log.debug("START - translateIshi");
+	  // 		  const ishiCss = {
+	  // 			  position: 'relative',
+	  // 			  top: -1 * ( ishiSize + (( masuHeight - ishiSize) >> 1 ) ) + 'px',
+	  // 			  //		  left: '-50%',
+	  // 			  width: ishiSize + 'px',
+	  // 			  height: ishiSize + 'px',
+	  // 			  backgroundColor: ishi.color,
+	  // 			  borderRadius: '50%',
+	  // 			  display: 'inline-block',
+	  // 			  verticalAlign: 'bottom',
+	  // 			  margin: 0,
+	  // 			  zIndex: 1
+	  // 		  }
+	  // 		  const spn = document.createElement('span');
+	  // 		  attachCss(spn, ishiCss);
+	  // 		  log.debug(spn);
+	  // 		  log.debug("END   - translateIshi");
+	  // 		  return spn;
+	  // 	  }
+	  // 
+	  // 	  return function(elm, masuWidth, masuHeight, ishiSize) {
+	  // 		  // TODO: modify eventhandler
+	  // 		  return function() {
+	  // 			  log.debug("START- putIshi");
+	  // 			  const row = Number(elm.getAttribute('row'));
+	  // 			  const col = Number(elm.getAttribute('col'));
+	  // 			  const pos = PositionDispenser.createPosition(row, col);
+	  // 			  log.debug(`pos: ${pos}`);
+	  // 
+	  // 			  // update game-board
+	  // 			  const board = Board.getInstance();
+	  // 			  if ( cnt % 2 == 0 ) { // Black
+	  // 				  board.setIshi(IshiFactory.createBlack(pos.getRow(), pos.getCol()));
+	  // 			  } else {              // White
+	  // 				  board.setIshi(IshiFactory.createWhite(pos.getRow(), pos.getCol()));
+	  // 			  }
+	  // 
+	  // 			  // update rendering
+	  // 			  if ( elm.getAttribute('hasishi') == "false") {
+	  // 				  const ishi = board.getIshi(pos.getRow(), pos.getCol());
+	  // 				  if ( ishi ) {
+	  // 	  				  elm.appendChild(translateIshi(ishi,
+	  // 	  												masuWidth, masuHeight,
+	  // 	  												ishiSize));
+	  // 	  				  elm.setAttribute('hasishi', true);
+	  // 				  }
+	  // 				  cnt += 1;
+	  // 			  } else {
+	  // 				  const ishi = elm.lastElementChild;
+	  // 				  elm.removeChild(ishi);
+	  // 				  elm.setAttribute('hasishi', false);
+	  // 			  }
+	  // 
+	  // 			  log.debug("END  - putIshi");
+	  // 		  }
+	  // 	  }
+      // })();
+
+
+	  // Logical Stage <>- Physical Stage.render
+	  
+	  // // physical stage
+      // function createTable(stage) {
+	  // 	  const masuWidth = 40;
+	  // 	  const masuHeight = 40;
+	  // 	  const ishiSize = 30;
+	  // 	  
+	  // 	  const tableCss = {
+	  // 		  borderCollapse: 'collapse'
+	  // 	  }
+	  // 
+	  // 	  const tdCss = {
+	  // 		  width: ( masuWidth ) + 'px',
+	  // 		  height: ( masuHeight ) + 'px',
+	  // 		  padding: 0,
+	  // 		  margin: 0,
+	  // 		  backgroundColor: '#a78d50',
+	  // 		  textAlign: 'center',
+	  // 		  display: 'inline-block',
+	  // 		  zIndex: 0
+	  // 	  }
+	  // 
+	  // 
+	  // 	  const MAX_ROW = PositionDispenser.getMaxRow();
+	  // 	  const MAX_COL = PositionDispenser.getMaxCol();
+	  // 
+	  // 	  const tblElm = document.createElement('table');
+	  // 	  attachCss(tblElm, tableCss);
+	  // 
+	  // 	  const builder = InnerTableBuilderFactory.create(masuWidth, masuHeight);
+	  // 	  for ( let row = 0 ; row < MAX_ROW ; row++ ) {
+	  // 		  const trElm = document.createElement('tr');
+	  // 		  for ( let col = 0 ; col < MAX_COL ; col++ ) {
+	  // 			  const tdElm = document.createElement('td');
+	  // 
+ 	  // 			  // // Debug Util
+ 	  // 			  // tdElm.style.border = '1px dashed red';
+	  // 
+	  // 			  attachCss(tdElm, tdCss);
+	  // 			  let inTbl = builder.buildMiddle();
+	  // 			  if ( col == 0 ) {
+	  // 				  if ( row == 0 ) {
+	  // 					  inTbl = builder.buildLeftTopCorner();
+	  // 				  } else if ( row == MAX_ROW - 1 ) {
+	  // 					  inTbl = builder.buildLeftBottomCorner();
+	  // 				  } else {
+	  // 					  inTbl = builder.buildLeftSide();
+	  // 				  }
+	  // 			  } else if ( col == MAX_COL - 1 ) {
+	  // 				  if ( row == 0 ) {
+	  // 					  inTbl = builder.buildRightTopCorner();
+	  // 				  } else if ( row == MAX_ROW - 1 ) {
+	  // 					  inTbl = builder.buildRightBottomCorner();
+	  // 				  } else {
+	  // 					  inTbl = builder.buildRightSide();
+	  // 				  }
+	  // 			  } else {
+	  // 				  if ( row == 0 ) {
+	  // 					  inTbl = builder.buildTopSide();
+	  // 				  } else if ( row == MAX_ROW - 1 ) {
+	  // 					  inTbl = builder.buildBottomSide();
+	  // 				  } else {
+	  // 					  // pass
+	  // 				  }
+	  // 			  }
+	  // 			  tdElm.appendChild(inTbl);
+	  // 
+	  // 			  const pos = PositionDispenser.createPosition(row, col);
+	  // 			  tdElm.setAttribute('hasishi', false);
+	  // 			  tdElm.setAttribute('row', pos.getRow());
+	  // 			  tdElm.setAttribute('col', pos.getCol());
+	  // 			  tdElm.onclick = generatePutIshi(tdElm, masuWidth, masuHeight, ishiSize);
+	  // 			  
+	  // 			  trElm.appendChild(tdElm);
+	  // 
+	  // 		  }
+	  // 		  tblElm.appendChild(trElm);
+	  // 	  }
+	  // 
+	  // 	  return tblElm;
+      // }
+	  const PysicalStage = (function(){
+		  const masuWidth = 40;
+		  const masuHeight = 40;
+		  const ishiSize = 30;
+		  
+		  const tableCss = {
+			  borderCollapse: 'collapse'
+		  }
+
+		  const tdCss = {
+			  width: ( masuWidth ) + 'px',
+			  height: ( masuHeight ) + 'px',
+			  padding: 0,
+			  margin: 0,
+			  backgroundColor: '#a78d50',
+			  textAlign: 'center',
+			  display: 'inline-block',
+			  zIndex: 0
+		  }
+
+
+		  const MAX_ROW = PositionDispenser.getMaxRow();
+		  const MAX_COL = PositionDispenser.getMaxCol();
+		  const builder = InnerTableBuilderFactory.create(masuWidth, masuHeight);
+
+		  // put event
+		  const generatePutIshi = (function() {
+			  let cnt = 0;
+			  return function(elm, masuWidth, masuHeight, ishiSize) {
+				  // TODO: modify eventhandler
+				  return function() {
+					  log.debug("START- putIshi");
+					  const row = Number(elm.getAttribute('row'));
+					  const col = Number(elm.getAttribute('col'));
+					  const pos = PositionDispenser.createPosition(row, col);
+					  log.debug(`pos: ${pos}`);
+
+					  // update game-board
+					  const board = Board.getInstance();
+					  // if ( elm.getAttribute('hasishi') == "false") {
+					  if ( !board.hasIshi(pos.getRow(), pos.getCol())) {
+						  if ( cnt % 2 == 0 ) { // Black
+							  board.setIshi(IshiFactory.createBlack(pos.getRow(), pos.getCol()));
+						  } else {              // White
+							  board.setIshi(IshiFactory.createWhite(pos.getRow(), pos.getCol()));
+						  }
+					  	  cnt += 1;
+					  } else {
+						  board.clearIshi(pos.getRow(), pos.getCol());
+						  cnt -= 1;
+					  }
+					  log.debug("END  - putIshi");
+				  }
+			  }
+		  })();
+
+		  const ishiBlackCss = {
+			  position: 'relative',
+			  top: -1 * ( ishiSize + (( masuHeight - ishiSize) >> 1 ) ) + 'px',
+			  //		  left: '-50%',
+			  width: ishiSize + 'px',
+			  height: ishiSize + 'px',
+			  backgroundColor: 'black',
+			  borderRadius: '50%',
+			  display: 'inline-block',
+			  verticalAlign: 'bottom',
+			  margin: 0,
+			  zIndex: 1
+		  }
+		  const ishiWhiteCss = {
+			  position: 'relative',
+			  top: -1 * ( ishiSize + (( masuHeight - ishiSize) >> 1 ) ) + 'px',
+			  //		  left: '-50%',
+			  width: ishiSize + 'px',
+			  height: ishiSize + 'px',
+			  backgroundColor: 'white',
+			  borderRadius: '50%',
+			  display: 'inline-block',
+			  verticalAlign: 'bottom',
+			  margin: 0,
+			  zIndex: 1
+		  }
+
+		  
+		  const cache = new Array()
+		  const initialize = function(stage) {
+
+			  const tblElm = document.createElement('table');
+			  attachCss(tblElm, tableCss);
+
+			  for ( let row = 0 ; row < MAX_ROW ; row++ ) {
+				  const trElm = document.createElement('tr');
+				  const rowCache = new Array();
+				  for ( let col = 0 ; col < MAX_COL ; col++ ) {
+					  const tdElm = document.createElement('td');
+
+ 					  // // Debug Util
+ 					  // tdElm.style.border = '1px dashed red';
+
+					  attachCss(tdElm, tdCss);
+					  let inTbl = builder.buildMiddle();
+					  if ( col == 0 ) {
+						  if ( row == 0 ) {
+							  inTbl = builder.buildLeftTopCorner();
+						  } else if ( row == MAX_ROW - 1 ) {
+							  inTbl = builder.buildLeftBottomCorner();
+						  } else {
+							  inTbl = builder.buildLeftSide();
+						  }
+					  } else if ( col == MAX_COL - 1 ) {
+						  if ( row == 0 ) {
+							  inTbl = builder.buildRightTopCorner();
+						  } else if ( row == MAX_ROW - 1 ) {
+							  inTbl = builder.buildRightBottomCorner();
+						  } else {
+							  inTbl = builder.buildRightSide();
+						  }
+					  } else {
+						  if ( row == 0 ) {
+							  inTbl = builder.buildTopSide();
+						  } else if ( row == MAX_ROW - 1 ) {
+							  inTbl = builder.buildBottomSide();
+						  } else {
+							  // pass
+						  }
+					  }
+					  tdElm.appendChild(inTbl);
+
+					  const pos = PositionDispenser.createPosition(row, col);
+					  tdElm.setAttribute('hasishi', false);
+					  tdElm.setAttribute('row', pos.getRow());
+					  tdElm.setAttribute('col', pos.getCol());
+					  tdElm.onclick = generatePutIshi(tdElm, masuWidth, masuHeight, ishiSize);
+
+					  //
+					  const spnBlack = document.createElement('span');
+					  attachCss(spnBlack, ishiBlackCss);
+					  spnBlack.style.display = 'none';
+					  spnBlack.classList.add('black');
+					  tdElm.appendChild(spnBlack);
+					  const spnWhite = document.createElement('span');
+					  attachCss(spnWhite, ishiWhiteCss);
+					  spnWhite.style.display = 'none';
+					  spnWhite.classList.add('white');
+					  tdElm.appendChild(spnWhite);
+					  //
+					  
+					  trElm.appendChild(tdElm);
+					  rowCache.push(tdElm);
+
+				  }
+				  tblElm.appendChild(trElm);
+				  cache.push(rowCache);
+			  }
+
+			  return tblElm;
+		  }
+		  const render = function(r, c, cmd, color) {
+			  // TODO
+			  cache[r][c].querySelectorAll('span').forEach(elm => {
+				  elm.style.display = 'none';
+			  });
+			  if ( cmd == 'put' ) {
+				  cache[r][c].querySelector(`span.${color}`).style.display='inline-block';
+			  } else if ( cmd == 'clear' ) {
+				 //  cache[r][c].querySelector(`span.${color}`).style.display='none';
+			  }
+		  }
+		  const retObj = {};
+		  retObj.initialize = initialize;
+		  retObj.render = render;
+
+		  Object.freeze(retObj)
+		  return retObj
+			  
+	  })();
+      
+      window.onload = function() {
+		  log.info("main start");
+
+		  const gameStage = Board.getInstance();
+		  // document.body.appendChild(createTable(gameStage));
+		  const pysicalStage = PysicalStage;
+		  gameStage.setPhysical(pysicalStage);
+		  document.body.appendChild(pysicalStage.initialize(gameStage));
+		  // pysicalStage.render(0,1, 'put', 'black');
+		  // pysicalStage.render(0,1, 'clear', 'black');
+		  // pysicalStage.render(0,0, 'put', 'white');
+
+		  // Dispacher test
+		  EventDispacher.initialize(gameStage);
+		  EventDispacher.start();
+
+		  const cmd0 = EventFactory.create(
+			  EventFactory.EVENT_ECH,
+			  null,
+			  EventFactory.ID_SYSTM,
+			  'hello');
+		  EventDispacher.send(cmd0);
+
+		  const cmd1 = EventFactory.create(
+			  EventFactory.EVENT_ECH,
+			  null,
+			  EventFactory.ID_SYSTM,
+			  'world');
+		  EventDispacher.send(cmd1);
+
+		  const cmd2 = EventFactory.create(
+			  EventFactory.EVENT_ECH,
+			  null,
+			  EventFactory.ID_SYSTM,
+			  'this');
+		  EventDispacher.send(cmd2);
+
+		  const cmd3 = EventFactory.create(
+			  EventFactory.EVENT_ECH,
+			  null,
+			  EventFactory.ID_SYSTM,
+			  'is');
+		  EventDispacher.send(cmd3);
+
+		  const cmd4 = EventFactory.create(
+			  EventFactory.EVENT_ECH,
+			  null,
+			  EventFactory.ID_SYSTM,
+			  'server');
+		  EventDispacher.send(cmd4);
+
+		  const put = EventFactory.create(
+			  EventFactory.EVENT_PUT,
+			  {
+			  getRow() { return 8; },
+			  getCol() { return 8; }
+		  },
+			  EventFactory.ID_SYSTM,
+			  '');
+		  EventDispacher.send(put);
+
+		  // const rka = EventFactory.create(
+		  // 	  EventFactory.EVENT_RKA,
+		  // 	  null,
+		  // 	  EventFactory.ID_SYSTM,
+		  // 	  'hello');
+		  // EventDispacher.send(rka);
+
+
+		  // check exception
+		  log.debug("Check exception")
+		  EventDispacher.start();
+		  setTimeout(
+			  function() {
+	  			  EventDispacher.end();
+			  },
+			  2000);
+      }
+    </script>
+  </head>
+  <body>
+  </body>
+</html>

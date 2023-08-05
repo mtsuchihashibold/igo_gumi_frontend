@@ -1,0 +1,229 @@
+/*
+  TITLE: Unittest.js
+  AUTHOR: m.tsuchiahshi
+  DATE: 2022/09/10
+  DEPENDENCY: NONE
+  LICENCE: MIT
+  DESCRIPTION: 
+*/
+
+import FailError from './Fail.js';
+import Logger from '../../src/debug.js';
+/* MODIFY START */
+import {uuid} from '../../src/utils.js';
+/* MODIFY END */
+
+const OK = 0b0001;
+const NG = 0b0010;
+
+/* MODIFY START */
+class Entry {
+#entries = [];
+    constructor() {
+	// pass
+    }
+
+    add(entry) {
+	if ( ! (entry instanceof Entry ) ) throw new TypeError('invalid argument');
+	this.#entries.push(entry);
+    }
+    remove(entry) {
+	if ( ! (entry instanceof Entry ) ) throw new TypeError('invalid argument');
+	this.#entries = this.#entries.filter(elm => elm !== entry);
+    }
+    forEach(fn) {
+	this.#entries.forEach(entry => {
+	    fn(entry);
+	});
+    }
+}
+
+class UnittestSpec extends Entry {
+#name;
+    constructor(name) {
+	this.#name = name;
+    }
+    getName() {
+	return this.#name;
+    }
+    toString() {
+	let res = '';
+	this.forEach((entry) => {
+	    res += `${this.getName()}`;
+	    if ( entry instanceof UnittestResult ) {
+		res += `- ${entry.toString()}`;
+	    }
+	    res += "\n";
+	});
+	return res;
+    }
+}
+class UnittestCase extends Entry {
+#name;
+    constructor(name) {
+	this.#name = name;
+    }
+    getName() {
+	return this.#name;
+    }
+    toString() {
+	// return `${this.getName()}`;
+
+	let res = '';
+	this.forEach((entry) => {
+	    res += `${this.getName()}`;
+	    if ( entry instanceof UnittestResult ) {
+		res += `- ${entry.toString()}`;
+	    }
+	    res += "\n";
+	});
+	return res;
+    }
+
+}
+class UnittestResult extends Entry {
+#result;
+#message;
+    constructor(result, message) {
+	this.#result = result;
+	this.#message = mesasge;
+    }
+    add(entry) {
+	throw new Error();
+    }
+    remove(entry) {
+	throw new Error();
+    }
+    isOk() {
+	return ( this.#result & OK ) == OK;
+    }
+    isNg() {
+	return ( this.#result & NG ) == NG;
+    }
+    getResult() {
+	if ( this.isOk() ) {
+	    return 'OK';
+	} else {
+	    return 'NG';
+	}
+    }
+    getMessage() {
+	return this.#message;
+    }
+    toString() {
+	if ( this.isOk() ) {
+	    return `${this.getResult()}`;
+	} else {
+	    return `${this.getResult()} - ${this.getMessage()}`;
+	}
+    }
+}
+
+
+/* MODIFY ENd */
+
+export class UnittestResult {
+#name;
+#result;
+#message;
+    constructor(name, result, message) {
+	this.#name = name;
+	this.#result = result;
+	this.#message = message ? message : '';
+    }
+    isOk() {
+	return ( this.#result & OK ) == OK;
+    }
+    isNg() {
+	return ( this.#result & NG ) == NG;
+    }
+    getName() {
+	return this.#name;
+    }
+    getResult() {
+	if ( this.isOk() ) {
+	    return 'OK';
+	} else {
+	    return 'NG';
+	}
+    }
+    getMessage() {
+	return this.#message;
+    }
+    toString() {
+	if ( this.isOk() ) {
+	    return `${this.getName()} - ${this.getResult()}`;
+	} else {
+	    return `${this.getName()} - ${this.getResult()} - ${this.getMessage()}`;
+	}
+    }
+}
+
+export class Unittest {
+    #messageList = [];
+    #resultList = [];
+    #methodList = [];
+    
+    serUp() {
+	// Do Override
+    }
+    tearDown() {
+	// Do Override
+    }
+    getMessageList() {
+	return this.#messageList;
+    }
+    getResultList() {
+	return this.#resultList;
+    }
+    isAllOk() {
+	let isOk = true;
+	this.#resultList.forEach(res => {
+	    isOk = isOk && res.isOk();
+	});
+	return isOk;
+    }
+    getTestList() {
+	if ( this.#methodList.length == 0 ) {
+	    const cls = this.constructor.prototype;
+	    this.#methodList = Object
+		.getOwnPropertyNames(cls)
+		.filter(pname => pname && pname.match(/^test/));
+	}
+	return this.#methodList;
+    }
+    main(isConsole) {
+	this.setUp();
+
+	try{
+	    if ( this.getTestList().legth != 0) {
+		this.#methodList.forEach(methodname => {
+		    try{
+			this[methodname]();
+			const result = new UnittestResult(methodname, OK, '');
+			if ( isConsole ) {
+			    (new Logger()).info(result);
+			} else {
+			    this.#resultList.push(result);
+			}
+		    } catch(e) {
+			const result = new UnittestResult(methodname, NG, e);
+			if ( isConsole ) {
+			    (new Logger()).info(result);
+			} else {
+			    this.#resultList.push(result);
+			}
+		    }
+		});
+	    } else {
+		throw new FailError('Defined no test');
+	    }
+	} catch(e) {
+	    (new Logger()).error(e);
+	    this.#messageList.push(e)
+	} finally {
+	    this.tearDown();
+	}
+    }
+}
+

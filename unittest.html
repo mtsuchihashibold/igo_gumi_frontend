@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>UnitTest</title>
+    <meta charset='UTF-8' />
+    <style type='text/css'>
+      th {
+	  border: 1px solid black;
+	  text-align: start;
+      }
+      td {
+	  text-align: start;
+	  border: 1px solid black;
+      }
+      .non-display {
+	  display: none;
+      }
+    </style>
+    <script type='module'>
+      import {isString, isHtmlElement} from './src/utils.js';
+      import testlist from './unittests/testlist.js';
+
+
+      const UnittestMedia = function(_path) {
+	  const STAT_NONE   = 0b0000;
+	  const STAT_OK     = 0b0001;
+	  const STAT_NG     = 0b0010;
+	  const STAT_NOTYET = 0b0100;
+	  const STAT_NOEXEC = 0b1000;
+
+	  let path = _path;
+	  let name = '';
+	  let isLoaded = false;
+	  let isChecked = false;
+	  let isExpand = false;
+	  let testObj = null;
+	  let parent = null;
+	  let children = null;
+	  const tr = document.createElement('tr');
+
+	  const tdCheck = document.createElement('td');
+	  const checkBox = document.createElement('input');
+	  tr.appendChild(tdCheck);
+
+	  const tdExpand = document.createElement('td');
+	  tr.appendChild(tdExpand);
+
+	  const tdName = document.createElement('td');
+	  tr.appendChild(tdName);
+
+	  const tdResult = document.createElement('td');
+	  tr.appendChild(tdResult);
+
+	  const onNotExecute = function() {
+	      tr.style.backgroundColor = 'lightgray';
+	      tdResult.textContent = 'No executed';
+	  }
+	  const onNotYet = function() {
+	      tr.style.backgroundColor = 'white';
+	      tdResult.textContent = 'Not yet';
+	  }
+	  const onOk = function() {
+	      tr.style.backgroundColor = 'skyblue';
+	      tdResult.textContent = 'OK';
+	  }
+	  const onNg = function() {
+	      tr.style.backgroundColor = 'pink';
+	      tdResult.textContent = 'NG';
+	  }
+
+	  const _setName = function(_name) {
+	      name = _name;
+	      tdName.textContent = _name;
+	  }
+	  
+	  return {
+	      init:function(isChild) {
+		  onNotYet();
+		  if ( isChild ) {
+		      // pass
+		  } else {
+		      checkBox.type = 'checkbox';
+		      checkBox.onclick = (function() {
+			  return function(){
+			      isChecked = !isChecked;
+			  }
+		      })();
+		      tdCheck.appendChild(checkBox);
+
+		      const btn = document.createElement('button');
+		      btn.textContent = 'expand';
+		      btn.onclick = (function(elm) {
+			  return function(){
+			      isExpand = !isExpand;
+			      if ( isExpand ) {
+				  elm.textContent = 'shrink';
+				  Object.keys(children).forEach(key => {
+				      children[key].expand();
+				  });
+			      } else {
+				  elm.textContent = 'expand';
+				  Object.keys(children).forEach(key => {
+				      children[key].shrink();
+				  });
+			      }
+			  }
+		      })(btn);
+		      tdExpand.appendChild(btn);
+
+		  }
+		  
+	      },
+	      setParent: function(_parent) {
+		  parent = _parent;
+	      },
+	      expand: function() {
+		  isExpand = true;
+		  tr.classList.remove('non-display');
+	      },
+	      shrink: function() {
+		  isExpand = false;
+		  tr.classList.add('non-display');
+	      },
+	      load:function(){
+		  import(path).then( async mdl => {
+		      const filename = path.split('/').slice(-1)[0];
+		      const [basename, ext] = filename ?
+			    filename.split('.') : [ null, null ];
+		      testObj = new mdl['default'].prototype.constructor();
+
+		      _setName(basename);
+		      onNotYet();
+		      
+
+		      children = {};
+		      testObj.getTestList().forEach(testcase => {
+			  const child = new UnittestMedia();
+			  child.setName(testcase);
+			  child.init(true);
+			  child.setParent(parent);
+			  child.shrink();
+			  children[testcase] = child;
+		      });
+		      parent.appendChild(tr);
+		      Object.keys(children).forEach(key => {
+			  children[key].attach(parent);
+		      });
+		  });
+	      },
+	      setName: _setName,
+	      setResult: function(result) {
+		  if ( ( result & STAT_OK ) == STAT_OK ) onOk();
+		  else if ( ( result & STAT_NG ) == STAT_NG ) onNg();
+		  else if ( ( result & STAT_NOTYET ) == STAT_NOTYET ) onNotYet();
+		  else if ( ( result & STAT_NOEXEC ) == STAT_NOEXEC ) onNotExecute();
+		  else throw new Error('argument invalid');
+	      },
+	      execute: function() {
+		  if ( !isChecked ) {
+		      onNotExecute();
+		      Object.keys(children).forEach(key => {
+			  children[key].setResult(STAT_NOEXEC);
+		      });
+		      return ;
+		  }
+		  testObj.main();
+		  if ( testObj.isAllOk() ) {
+		      onOk();
+		      Object.keys(children).forEach(key => {
+			  children[key].setResult(STAT_OK);
+		      });
+		  } else {
+		      onNotExecute();
+		      testObj.getResultList().forEach(res => {
+			  if ( res.isOk() ) {
+			      children[res.getName()].setResult(STAT_OK);
+			  } else if ( res.isNg() ) {
+			      onNg();
+			      children[res.getName()].setResult(STAT_NG);
+			  } else {
+			      children[res.getName()].setResult(STAT_NOEXEC);
+			  }
+		      });
+		  }
+	      },
+	      getChecked: function() {
+		  return isChecked;
+	      },
+	      setChecked: function(_isChecked) {
+		  checkBox.checked = _isChecked;
+		  isChecked = !!_isChecked;
+		  
+	      },
+	      attach: function(parent) {
+		  if ( ! ( parent instanceof Element ) ) throw new Error('argument invalid');
+		  parent.appendChild(tr);
+	      }
+	  }
+      };
+
+
+      
+
+      const _createTdElm = function(size) {
+	  const td = document.createElement('td');
+	  td.style.width = size;
+	  return td;
+      }
+      const CheckBoxColBuilder = (function(){
+	  const size = '4rem'
+	  const _createHeaderCol = function() {
+	      const td = _createTdElm(size);
+	      td.textContent = 'CHECK';
+	      return td;
+	      
+	  }
+	  const _createDataCol = function() {
+	      const td = _createTdElm(size);
+	      const checkBox = document.createElement('input');
+	      checkBox.setAttribute('type', 'checkbox');
+	      checkBox.classList.add('checkbox');
+	      td.appendChild(checkBox);
+	      return td;
+	  }
+	  return {
+	      createHeaderCol: _createHeaderCol,
+	      createDataCol: _createDataCol
+	  }
+      })();
+
+      const ExpandColBuilder = (function(){
+	  const size = '3rem';
+	  const _createHeaderCol = function() {
+	      const td = _createTdElm(size);
+	      td.textContent = '+/-';
+	      return td;
+	      
+	  }
+	  const _createDataCol = function(_tr) {
+	      const td = _createTdElm(size);
+	      td.classList.add('expand');
+	      const fn = (function(){
+		  return function() {
+		      return function(){
+			  if ( isHtmlElement(_tr) ) {
+			      if ( _tr.getAttribute('expanded') == 'shrink' ) {
+				  const childrenIds = _tr.getAttribute('childrenIds').split(',');
+				  childrenIds.forEach(childId => {
+				      document.getElementById(childId).classList.remove('non-displey');
+				  });
+			      }
+			  }
+		      };
+		  }
+	      })();
+	      const btn = document.createElement('button');
+	      btn.onclick = fn();
+	      btn.textContent = 'Expand';
+	      td.appendChild(btn);
+	      return td;
+	  }
+	  return {
+	      createHeaderCol: _createHeaderCol,
+	      createDataCol: _createDataCol
+	  }
+      })();
+
+      const TestNameColBuilder = (function(){
+	  const size = '50rem';
+	  const _createHeaderCol = function() {
+	      const td = _createTdElm(size);
+	      td.textContent = 'TestName';
+	      return td;
+	      
+	  }
+	  const _createDataCol = function(testName) {
+	      const td = _createTdElm(size);
+	      td.textContent = testName
+	      td.classList.add('testname');
+	      return td;
+	  }
+	  return {
+	      createHeaderCol: _createHeaderCol,
+	      createDataCol: _createDataCol
+	  }
+      })();
+
+      const ResultColBuilder = (function(){
+	  const size = '7rem';
+	  const _createHeaderCol = function() {
+	      const td = _createTdElm(size);
+	      td.textContent = 'Result';
+	      return td;
+	      
+	  }
+	  const _createDataCol = function(result) {
+	      const td = _createTdElm(size);
+	      td.textContent = isString(result) ? result : 'Not Yet';
+	      td.classList.add('result');
+	      return td;
+	  }
+	  return {
+	      createHeaderCol: _createHeaderCol,
+	      createDataCol: _createDataCol
+	  }
+      })();
+
+
+      const RowBuilder = (function() {
+	  const _createRow = function(id, clsList) {
+	      const tr = document.createElement('tr');
+	      if ( isString(id) ) tr.setAttribute('id', id);
+	      if ( clsList && clsList.length != 0 ) {
+		  clsList.forEach(cls => {
+		      tr.classList.add(cls);
+		  });
+	      }
+	      return tr;
+	  }
+	  return {
+	      createRow: _createRow
+	  }
+      })();
+
+      const HeaderRowBuilder = (function() {
+	  const tr = RowBuilder.createRow();
+	  tr.appendChild(CheckBoxColBuilder.createHeaderCol());
+	  tr.appendChild(ExpandColBuilder.createHeaderCol());
+	  tr.appendChild(TestNameColBuilder.createHeaderCol());
+	  tr.appendChild(ResultColBuilder.createHeaderCol());
+
+	  return {
+	      build: function() {
+		  return tr;
+	      }
+	  }
+      })();
+
+      
+      const dynamicLoader = (function() {
+	  let unittestList = [];
+	  return {
+	      load: function() {
+		  const tbl = document.createElement('table');
+		  tbl.style.borderCollapse = 'collapse';
+		  document.body.appendChild(tbl);
+		  
+		  const thead = document.createElement('thead');
+		  const tbody = document.createElement('tbody');
+		  tbl.appendChild(thead);
+		  tbl.appendChild(tbody);
+		  
+		  thead.appendChild(HeaderRowBuilder.build());
+
+		  unittestList = [];
+		  testlist.forEach(path => {
+		      const utm = new UnittestMedia(path);
+		      utm.init();
+		      utm.setParent(tbody);
+		      utm.load();
+		      unittestList.push(utm);
+		  });
+	      },
+	      getUnittestList: function() {
+		  return unittestList;
+	      }
+	  }
+      })();
+
+      dynamicLoader.load();      
+      window.onload = function() {
+
+	  document.getElementById('exec').onclick = doUnittest;
+	  document.getElementById('reload').onclick = function() {
+	      document.location.reload();
+	  }
+
+	  document.getElementById('all-expand').onclick = function() {
+	      alert("ごめんね！まだ実装中だよ！");
+	  }
+
+	  document.getElementById('all').onclick = function() {
+	      const isChecked = document.getElementById('all').checked;
+	      dynamicLoader.getUnittestList().forEach(test => {
+		  test.setChecked(isChecked);
+	      });
+	  }
+      }
+
+      function doUnittest() {
+	  dynamicLoader.getUnittestList().forEach(test => {
+	      test.execute();
+	  });
+      }
+      
+      
+    </script>
+  </head>
+  <body>
+    <div class='controller'>
+
+      <button id='exec'>EXEC. TEST</button>
+      <button id='reload'>RE-LOAD</button>
+      <button id='all-expand'>ALL-EXPAND</button>
+      <label><input id="all" type='checkbox'>All</label>
+
+    </div>
+    <div id='result'>
+    </div>
+    
+  </body>
+</html>
